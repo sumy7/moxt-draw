@@ -12,21 +12,29 @@ interface NewCanvasTarget {
   drawingsPath: string
 }
 
+const spaces = getSpaces()
+
 export default function App() {
-  const spaces = getSpaces()
-  const defaultTarget: NewCanvasTarget = { spaceId: spaces[0].id, drawingsPath: spaces[0].drawingsPath }
+  const defaultTarget: NewCanvasTarget | null = spaces.length
+    ? { spaceId: spaces[0].id, drawingsPath: spaces[0].drawingsPath }
+    : null
 
   const [activeCanvasPath, setActiveCanvasPath] = useState<string | null>(null)
   const [canvasData, setCanvasData] = useState<object | null>(null)
-  const [newCanvasTarget, setNewCanvasTarget] = useState<NewCanvasTarget>(defaultTarget)
+  const [newCanvasTarget, setNewCanvasTarget] = useState<NewCanvasTarget | null>(defaultTarget)
   const [filePanelKey, setFilePanelKey] = useState(0)
   const excalidrawDataRef = useRef<(() => { elements: readonly object[]; appState: object; files: object } | null) | null>(null)
 
   const openCanvas = useCallback(async (path: string) => {
-    const data = await readCanvas(path)
-    setCanvasData(data)
-    setActiveCanvasPath(path)
-    updateMetaOnOpen(path)
+    try {
+      setCanvasData(null)
+      const data = await readCanvas(path)
+      setCanvasData(data)
+      setActiveCanvasPath(path)
+      updateMetaOnOpen(path).catch(console.warn)
+    } catch (e) {
+      console.error('Failed to open canvas', e)
+    }
   }, [])
 
   const handleNewCanvas = useCallback((spaceId: string, drawingsPath: string) => {
@@ -49,6 +57,12 @@ export default function App() {
     setCanvasData(null)
   }, [])
 
+  const getExcalidrawData = useCallback(() => excalidrawDataRef.current?.() ?? null, [])
+
+  const handleApiReady = useCallback((getter: () => { elements: readonly object[]; appState: object; files: object } | null) => {
+    excalidrawDataRef.current = getter
+  }, [])
+
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <Toolbar
@@ -57,7 +71,7 @@ export default function App() {
         onCreated={handleCreated}
         onRenamed={handleRenamed}
         onDeleted={handleDeleted}
-        getExcalidrawData={() => excalidrawDataRef.current?.() ?? null}
+        getExcalidrawData={getExcalidrawData}
       />
       <div className="flex flex-1 overflow-hidden">
         <FilePanel
@@ -72,7 +86,7 @@ export default function App() {
               key={activeCanvasPath}
               canvasPath={activeCanvasPath}
               initialData={canvasData}
-              onApiReady={(getter) => { excalidrawDataRef.current = getter }}
+              onApiReady={handleApiReady}
             />
           ) : (
             <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
