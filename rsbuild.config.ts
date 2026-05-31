@@ -8,6 +8,11 @@ export default defineConfig({
       index: './src/main.tsx',
     },
   },
+  resolve: {
+    alias: {
+      '@': './src',
+    },
+  },
   tools: {
     postcss: {
       postcssOptions: {
