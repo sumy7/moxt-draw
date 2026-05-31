@@ -8,4 +8,11 @@ export default defineConfig({
       index: './src/main.tsx',
     },
   },
+  tools: {
+    postcss: {
+      postcssOptions: {
+        plugins: [require('@tailwindcss/postcss')],
+      },
+    },
+  },
 });
