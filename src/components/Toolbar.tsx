@@ -36,56 +36,98 @@ export function Toolbar({
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [inputName, setInputName] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  function canvasDisplayName(path: string): string {
+    return path.split('/').pop()?.replace('.excalidraw', '') ?? '未命名'
+  }
+
+  function triggerDownload(url: string, filename: string) {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
 
   async function handleCreate() {
-    if (!newCanvasTarget || !inputName.trim()) return
+    if (!newCanvasTarget || !inputName.trim() || busy) return
     const { spaceId, drawingsPath } = newCanvasTarget
     const safeName = inputName.trim().replace(/[/\\]/g, '_')
     const path = `${drawingsPath}/${safeName}.excalidraw`
-    await fs.mkdir(drawingsPath)
-    await writeCanvas(path, emptyCanvas())
-    await createMeta(path, safeName, spaceId)
-    setNewDialogOpen(false)
-    setInputName('')
-    onCreated(path)
+    setBusy(true)
+    try {
+      if (await fs.exists(path)) {
+        alert(`画板「${safeName}」已存在，请使用其他名称。`)
+        return
+      }
+      await fs.mkdir(drawingsPath)
+      await writeCanvas(path, emptyCanvas())
+      await createMeta(path, safeName, spaceId)
+      setNewDialogOpen(false)
+      setInputName('')
+      onCreated(path)
+    } catch (e) {
+      alert(`创建失败：${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function handleRename() {
-    if (!activeCanvasPath || !inputName.trim()) return
+    if (!activeCanvasPath || !inputName.trim() || busy) return
     const parts = activeCanvasPath.split('/')
     const dir = parts.slice(0, -1).join('/')
     const safeName = inputName.trim().replace(/[/\\]/g, '_')
     const newPath = `${dir}/${safeName}.excalidraw`
-    await fs.move(activeCanvasPath, newPath)
-    await updateMetaOnRename(activeCanvasPath, newPath, safeName)
-    setRenameDialogOpen(false)
-    setInputName('')
-    onRenamed(newPath)
+    setBusy(true)
+    try {
+      if (newPath !== activeCanvasPath && await fs.exists(newPath)) {
+        alert(`画板「${safeName}」已存在，请使用其他名称。`)
+        return
+      }
+      await fs.move(activeCanvasPath, newPath)
+      await updateMetaOnRename(activeCanvasPath, newPath, safeName)
+      setRenameDialogOpen(false)
+      setInputName('')
+      onRenamed(newPath)
+    } catch (e) {
+      alert(`重命名失败：${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function handleDelete() {
-    if (!activeCanvasPath) return
-    await fs.remove(activeCanvasPath)
-    await fs.remove(metaPathFor(activeCanvasPath))
-    setDeleteDialogOpen(false)
-    onDeleted()
+    if (!activeCanvasPath || busy) return
+    setBusy(true)
+    try {
+      await fs.remove(activeCanvasPath)
+      await fs.remove(metaPathFor(activeCanvasPath))
+      setDeleteDialogOpen(false)
+      onDeleted()
+    } catch (e) {
+      alert(`删除失败：${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function handleExportPng() {
     const data = getExcalidrawData()
     if (!data) return
-    const blob = await exportToBlob({
+    const url = URL.createObjectURL(await exportToBlob({
       elements: data.elements as any,
       appState: data.appState as any,
       files: data.files as any,
       mimeType: 'image/png',
-    })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = (activeCanvasPath?.split('/').pop()?.replace('.excalidraw', '') ?? 'drawing') + '.png'
-    a.click()
-    URL.revokeObjectURL(url)
+    }))
+    try {
+      triggerDownload(url, (activeCanvasPath ? canvasDisplayName(activeCanvasPath) : 'drawing') + '.png')
+    } finally {
+      URL.revokeObjectURL(url)
+    }
   }
 
   async function handleExportSvg() {
@@ -96,14 +138,14 @@ export function Toolbar({
       appState: data.appState as any,
       files: data.files as any,
     })
-    const serialized = new XMLSerializer().serializeToString(svg)
-    const blob = new Blob([serialized], { type: 'image/svg+xml' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = (activeCanvasPath?.split('/').pop()?.replace('.excalidraw', '') ?? 'drawing') + '.svg'
-    a.click()
-    URL.revokeObjectURL(url)
+    const url = URL.createObjectURL(
+      new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' })
+    )
+    try {
+      triggerDownload(url, (activeCanvasPath ? canvasDisplayName(activeCanvasPath) : 'drawing') + '.svg')
+    } finally {
+      URL.revokeObjectURL(url)
+    }
   }
 
   return (
@@ -123,7 +165,7 @@ export function Toolbar({
         <Button
           size="sm"
           variant="ghost"
-          onClick={() => { setInputName(''); setRenameDialogOpen(true) }}
+          onClick={() => { setInputName(activeCanvasPath ? canvasDisplayName(activeCanvasPath) : ''); setRenameDialogOpen(true) }}
           disabled={!activeCanvasPath}
         >
           <PencilIcon className="h-4 w-4 mr-1" /> 重命名
@@ -168,7 +210,7 @@ export function Toolbar({
           />
           <div className="flex justify-end gap-2 mt-2">
             <Button variant="outline" onClick={() => setNewDialogOpen(false)}>取消</Button>
-            <Button onClick={handleCreate} disabled={!inputName.trim()}>创建</Button>
+            <Button onClick={handleCreate} disabled={!inputName.trim() || busy}>创建</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -188,7 +230,7 @@ export function Toolbar({
           />
           <div className="flex justify-end gap-2 mt-2">
             <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>取消</Button>
-            <Button onClick={handleRename} disabled={!inputName.trim()}>确认</Button>
+            <Button onClick={handleRename} disabled={!inputName.trim() || busy}>确认</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -200,11 +242,11 @@ export function Toolbar({
             <DialogTitle>确认删除</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            确定要删除「{activeCanvasPath?.split('/').pop()?.replace('.excalidraw', '')}」吗？此操作不可恢复。
+            确定要删除「{activeCanvasPath ? canvasDisplayName(activeCanvasPath) : ''}」吗？此操作不可恢复。
           </p>
           <div className="flex justify-end gap-2 mt-2">
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>取消</Button>
-            <Button variant="destructive" onClick={handleDelete}>删除</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={busy}>删除</Button>
           </div>
         </DialogContent>
       </Dialog>
