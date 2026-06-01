@@ -26,11 +26,14 @@ export default function App() {
   const [filePanelKey, setFilePanelKey] = useState(0)
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
   const [lastSave, setLastSave] = useState<{ path: string; thumbnail: string | null; updatedAt: string; modifier: Member | null } | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
   const excalidrawDataRef = useRef<(() => { elements: readonly object[]; appState: object; files: object } | null) | null>(null)
+  const saveNowRef = useRef<(() => Promise<void>) | null>(null)
 
-  const openCanvas = useCallback(async (path: string) => {
+  const openCanvas = useCallback(async (path: string, editing = false) => {
     try {
       setCanvasData(null)
+      setIsEditing(editing)
       const data = await readCanvas(path)
       setCanvasData(data)
       setActiveCanvasPath(path)
@@ -46,7 +49,7 @@ export default function App() {
 
   const handleCreated = useCallback(async (path: string) => {
     setFilePanelKey(k => k + 1)
-    await openCanvas(path)
+    await openCanvas(path, true)
   }, [openCanvas])
 
   const handleRenamed = useCallback(async (newPath: string) => {
@@ -60,6 +63,7 @@ export default function App() {
     setCanvasData(null)
     setLastSavedAt(null)
     setLastSave(null)
+    setIsEditing(false)
   }, [])
 
   const handleSaved = useCallback((thumbnail: string | null) => {
@@ -76,6 +80,15 @@ export default function App() {
     excalidrawDataRef.current = getter
   }, [])
 
+  const handleSaveReady = useCallback((saveNow: () => Promise<void>) => {
+    saveNowRef.current = saveNow
+  }, [])
+
+  const handleSaveAndView = useCallback(async () => {
+    await saveNowRef.current?.()
+    setIsEditing(false)
+  }, [])
+
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <Toolbar
@@ -86,6 +99,9 @@ export default function App() {
         onDeleted={handleDeleted}
         getExcalidrawData={getExcalidrawData}
         lastSavedAt={lastSavedAt}
+        isEditing={isEditing}
+        onEdit={() => setIsEditing(true)}
+        onSaveAndView={handleSaveAndView}
       />
       <div className="flex flex-1 overflow-hidden">
         <FilePanel
@@ -101,7 +117,9 @@ export default function App() {
               key={activeCanvasPath}
               canvasPath={activeCanvasPath}
               initialData={canvasData}
+              isEditing={isEditing}
               onApiReady={handleApiReady}
+              onSaveReady={handleSaveReady}
               onSaved={handleSaved}
             />
           ) : (

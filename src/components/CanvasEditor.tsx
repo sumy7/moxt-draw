@@ -15,11 +15,13 @@ interface ExcalidrawData {
 interface Props {
   canvasPath: string
   initialData: object | null
+  isEditing: boolean
   onApiReady: (getter: () => ExcalidrawData | null) => void
+  onSaveReady: (saveNow: () => Promise<void>) => void
   onSaved: (thumbnail: string | null) => void
 }
 
-export function CanvasEditor({ canvasPath, initialData, onApiReady, onSaved }: Props) {
+export function CanvasEditor({ canvasPath, initialData, isEditing, onApiReady, onSaveReady, onSaved }: Props) {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingDataRef = useRef<{ elements: readonly unknown[]; appState: Record<string, unknown>; files: Record<string, unknown> } | null>(null)
   const dirtyRef = useRef(false)
@@ -40,6 +42,19 @@ export function CanvasEditor({ canvasPath, initialData, onApiReady, onSaved }: P
     }
   }, [canvasPath, onSaved])
 
+  // expose saveNow to parent (used by toolbar "save" button)
+  useEffect(() => {
+    onSaveReady(async () => {
+      if (!pendingDataRef.current) return
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+      const { elements, appState, files } = pendingDataRef.current
+      await doSave(elements, appState, files)
+    })
+  }, [doSave, onSaveReady])
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -51,7 +66,7 @@ export function CanvasEditor({ canvasPath, initialData, onApiReady, onSaved }: P
           saveTimerRef.current = null
         }
         const { elements, appState, files } = pendingDataRef.current
-        doSave(elements, appState, files)
+        void doSave(elements, appState, files)
       }
     }
     document.addEventListener('keydown', handleKeyDown, { capture: true })
@@ -66,6 +81,7 @@ export function CanvasEditor({ canvasPath, initialData, onApiReady, onSaved }: P
 
   const handleChange = useCallback(
     (elements: readonly unknown[], appState: Record<string, unknown>, files: Record<string, unknown>) => {
+      if (!isEditing) return
       pendingDataRef.current = { elements, appState, files }
       dirtyRef.current = true
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
@@ -73,7 +89,7 @@ export function CanvasEditor({ canvasPath, initialData, onApiReady, onSaved }: P
         void doSave(elements, appState, files)
       }, 2000)
     },
-    [doSave],
+    [doSave, isEditing],
   )
 
   return (
@@ -88,6 +104,7 @@ export function CanvasEditor({ canvasPath, initialData, onApiReady, onSaved }: P
           })
         }}
         initialData={initialData as any}
+        viewModeEnabled={!isEditing}
         onChange={handleChange as any}
       />
     </div>

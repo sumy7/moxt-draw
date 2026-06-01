@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
-import { PlusIcon, PencilIcon, Trash2Icon, DownloadIcon, ChevronDownIcon } from 'lucide-react'
+import { PlusIcon, PencilIcon, Trash2Icon, DownloadIcon, ChevronDownIcon, SaveIcon, EyeIcon } from 'lucide-react'
 import { getFs } from '../services/fs'
 import { writeCanvas, emptyCanvas, metaPathFor } from '../services/fileService'
 import { createMeta, updateMetaOnRename } from '../services/metaService'
@@ -23,6 +23,9 @@ interface Props {
   onDeleted: () => void
   getExcalidrawData: () => { elements: readonly object[]; appState: object; files: object } | null
   lastSavedAt: Date | null
+  isEditing: boolean
+  onEdit: () => void
+  onSaveAndView: () => void
 }
 
 export function Toolbar({
@@ -33,6 +36,9 @@ export function Toolbar({
   onDeleted,
   getExcalidrawData,
   lastSavedAt,
+  isEditing,
+  onEdit,
+  onSaveAndView,
 }: Props) {
   const [newDialogOpen, setNewDialogOpen] = useState(false)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
@@ -201,6 +207,18 @@ export function Toolbar({
             <DropdownMenuItem onClick={handleExportSvg}>导出 SVG</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {activeCanvasPath && (
+          isEditing ? (
+            <Button size="sm" variant="default" onClick={onSaveAndView}>
+              <SaveIcon className="h-4 w-4 mr-1" /> 保存
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={onEdit}>
+              <EyeIcon className="h-4 w-4 mr-1" /> 编辑
+            </Button>
+          )
+        )}
       </header>
 
       {/* 新建对话框 */}
