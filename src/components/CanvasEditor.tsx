@@ -16,7 +16,7 @@ interface Props {
   canvasPath: string
   initialData: object | null
   onApiReady: (getter: () => ExcalidrawData | null) => void
-  onSaved: () => void
+  onSaved: (thumbnail: string | null) => void
 }
 
 export function CanvasEditor({ canvasPath, initialData, onApiReady, onSaved }: Props) {
@@ -34,7 +34,7 @@ export function CanvasEditor({ canvasPath, initialData, onApiReady, onSaved }: P
       const thumbnail = await generateThumbnail(elements as readonly object[], appState as object, files as object)
       await updateMetaOnSave(canvasPath, thumbnail)
       dirtyRef.current = false
-      onSaved()
+      onSaved(thumbnail)
     } catch (e) {
       console.error('Save failed', e)
     }

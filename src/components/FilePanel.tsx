@@ -3,13 +3,21 @@ import { getSpaces } from '../config/spaces'
 import { listCanvasFiles } from '../services/fileService'
 import { readMeta } from '../services/metaService'
 import { Button } from './ui/button'
-import type { CanvasFile } from '../types/canvas'
+import type { CanvasFile, Member } from '../types/canvas'
 import { PlusIcon, ImageIcon } from 'lucide-react'
+
+interface LastSave {
+  path: string
+  thumbnail: string | null
+  updatedAt: string
+  modifier: Member | null
+}
 
 interface Props {
   activeCanvasPath: string | null
   onOpen: (path: string) => void
   onNewCanvas: (spaceId: string, drawingsPath: string) => void
+  lastSave: LastSave | null
 }
 
 function relativeTime(iso: string | null): string {
@@ -25,7 +33,7 @@ function relativeTime(iso: string | null): string {
   return new Date(iso).toLocaleDateString('zh-CN')
 }
 
-export function FilePanel({ activeCanvasPath, onOpen, onNewCanvas }: Props) {
+export function FilePanel({ activeCanvasPath, onOpen, onNewCanvas, lastSave }: Props) {
   const spaces = getSpaces()
   const [filesBySpace, setFilesBySpace] = useState<Record<string, CanvasFile[]>>({})
 
@@ -45,6 +53,28 @@ export function FilePanel({ activeCanvasPath, onOpen, onNewCanvas }: Props) {
   }, [])
 
   useEffect(() => { loadFiles() }, [loadFiles])
+
+  useEffect(() => {
+    if (!lastSave) return
+    setFilesBySpace(prev => {
+      const next: Record<string, CanvasFile[]> = {}
+      for (const [spaceId, files] of Object.entries(prev)) {
+        next[spaceId] = files.map(f => {
+          if (f.path !== lastSave.path || !f.meta) return f
+          return {
+            ...f,
+            meta: {
+              ...f.meta,
+              thumbnail: lastSave.thumbnail,
+              updated_at: lastSave.updatedAt,
+              last_modified_by: lastSave.modifier,
+            },
+          }
+        })
+      }
+      return next
+    })
+  }, [lastSave])
 
   return (
     <aside className="w-56 flex-shrink-0 border-r bg-sidebar flex flex-col overflow-y-auto">
