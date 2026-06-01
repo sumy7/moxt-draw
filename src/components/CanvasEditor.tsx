@@ -4,7 +4,7 @@ import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/dist/types/
 import { writeCanvas } from '../services/fileService'
 import { generateThumbnail } from '../services/thumbnailService'
 import { updateMetaOnSave } from '../services/metaService'
-import '@excalidraw/excalidraw/index.css'
+import '../vendor/excalidraw.css'
 
 interface ExcalidrawData {
   elements: readonly object[]
