@@ -4,7 +4,14 @@ export class MoxtFsAdapter implements FsAdapter {
   private get api() { return window.moxt!.fs }
 
   async listDir(path: string) {
-    try { return await this.api.listDir(path) } catch { return [] }
+    try {
+      const entries = await this.api.listDir(path)
+      // moxt returns full paths; normalize to bare filenames to match OpfsFsAdapter
+      const prefix = path.endsWith('/') ? path : path + '/'
+      return entries
+        .filter(e => e !== prefix && !e.endsWith('/'))
+        .map(e => e.startsWith(prefix) ? e.slice(prefix.length) : e)
+    } catch { return [] }
   }
   async read(path: string) { return this.api.read(path) }
   async write(path: string, content: string) { return this.api.write(path, content) }
