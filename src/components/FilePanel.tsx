@@ -4,7 +4,7 @@ import { listCanvasFiles } from '../services/fileService'
 import { readMeta } from '../services/metaService'
 import { Button } from './ui/button'
 import type { CanvasFile, Member } from '../types/canvas'
-import { PlusIcon, ImageIcon } from 'lucide-react'
+import { PlusIcon, ImageIcon, RefreshCwIcon } from 'lucide-react'
 
 interface LastSave {
   path: string
@@ -36,20 +36,26 @@ function relativeTime(iso: string | null): string {
 export function FilePanel({ activeCanvasPath, onOpen, onNewCanvas, lastSave }: Props) {
   const spaces = getSpaces()
   const [filesBySpace, setFilesBySpace] = useState<Record<string, CanvasFile[]>>({})
+  const [loading, setLoading] = useState(false)
 
   const loadFiles = useCallback(async () => {
-    const result: Record<string, CanvasFile[]> = {}
-    for (const space of spaces) {
-      const paths = await listCanvasFiles(space.drawingsPath)
-      const files: CanvasFile[] = await Promise.all(
-        paths.map(async (path) => ({
-          path,
-          meta: await readMeta(path),
-        }))
-      )
-      result[space.id] = files
+    setLoading(true)
+    try {
+      const result: Record<string, CanvasFile[]> = {}
+      for (const space of spaces) {
+        const paths = await listCanvasFiles(space.drawingsPath)
+        const files: CanvasFile[] = await Promise.all(
+          paths.map(async (path) => ({
+            path,
+            meta: await readMeta(path),
+          }))
+        )
+        result[space.id] = files
+      }
+      setFilesBySpace(result)
+    } finally {
+      setLoading(false)
     }
-    setFilesBySpace(result)
   }, [])
 
   useEffect(() => { loadFiles() }, [loadFiles])
@@ -84,15 +90,27 @@ export function FilePanel({ activeCanvasPath, onOpen, onNewCanvas, lastSave }: P
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               {space.label}
             </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => onNewCanvas(space.id, space.drawingsPath)}
-              title="新建画板"
-            >
-              <PlusIcon className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-center gap-0.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={loadFiles}
+                disabled={loading}
+                title="刷新"
+              >
+                <RefreshCwIcon className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => onNewCanvas(space.id, space.drawingsPath)}
+                title="新建画板"
+              >
+                <PlusIcon className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
           <ul className="space-y-0.5">
             {(filesBySpace[space.id] ?? []).map((file) => {
