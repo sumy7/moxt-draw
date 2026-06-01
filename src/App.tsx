@@ -23,6 +23,7 @@ export default function App() {
   const [canvasData, setCanvasData] = useState<object | null>(null)
   const [newCanvasTarget, setNewCanvasTarget] = useState<NewCanvasTarget | null>(defaultTarget)
   const [filePanelKey, setFilePanelKey] = useState(0)
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
   const excalidrawDataRef = useRef<(() => { elements: readonly object[]; appState: object; files: object } | null) | null>(null)
 
   const openCanvas = useCallback(async (path: string) => {
@@ -55,6 +56,11 @@ export default function App() {
     setFilePanelKey(k => k + 1)
     setActiveCanvasPath(null)
     setCanvasData(null)
+    setLastSavedAt(null)
+  }, [])
+
+  const handleSaved = useCallback(() => {
+    setLastSavedAt(new Date())
   }, [])
 
   const getExcalidrawData = useCallback(() => excalidrawDataRef.current?.() ?? null, [])
@@ -72,6 +78,7 @@ export default function App() {
         onRenamed={handleRenamed}
         onDeleted={handleDeleted}
         getExcalidrawData={getExcalidrawData}
+        lastSavedAt={lastSavedAt}
       />
       <div className="flex flex-1 overflow-hidden">
         <FilePanel
@@ -87,6 +94,7 @@ export default function App() {
               canvasPath={activeCanvasPath}
               initialData={canvasData}
               onApiReady={handleApiReady}
+              onSaved={handleSaved}
             />
           ) : (
             <div className="h-full flex items-center justify-center text-muted-foreground text-sm">

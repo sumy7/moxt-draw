@@ -16,7 +16,14 @@ export async function listCanvasFiles(drawingsPath: string): Promise<string[]> {
 export async function readCanvas(path: string): Promise<object | null> {
   const raw = await fs.read(path)
   if (!raw) return null
-  try { return JSON.parse(raw) } catch { return null }
+  try {
+    const data = JSON.parse(raw)
+    if (data?.appState) {
+      // collaborators is a runtime Map; JSON serializes it as {} which breaks Excalidraw
+      delete data.appState.collaborators
+    }
+    return data
+  } catch { return null }
 }
 
 export async function writeCanvas(path: string, data: object): Promise<boolean> {

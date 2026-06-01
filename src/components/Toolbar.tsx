@@ -22,6 +22,7 @@ interface Props {
   onRenamed: (newPath: string) => void
   onDeleted: () => void
   getExcalidrawData: () => { elements: readonly object[]; appState: object; files: object } | null
+  lastSavedAt: Date | null
 }
 
 export function Toolbar({
@@ -31,6 +32,7 @@ export function Toolbar({
   onRenamed,
   onDeleted,
   getExcalidrawData,
+  lastSavedAt,
 }: Props) {
   const [newDialogOpen, setNewDialogOpen] = useState(false)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
@@ -151,7 +153,13 @@ export function Toolbar({
   return (
     <>
       <header className="h-12 border-b flex items-center px-4 gap-2 shrink-0">
-        <span className="font-semibold text-sm mr-auto">Moxt Draw</span>
+        <span className="font-semibold text-sm">Moxt Draw</span>
+        {lastSavedAt && (
+          <span className="text-xs text-muted-foreground mr-auto">
+            已保存 {lastSavedAt.toLocaleTimeString()}
+          </span>
+        )}
+        {!lastSavedAt && <span className="mr-auto" />}
 
         <Button
           size="sm"
