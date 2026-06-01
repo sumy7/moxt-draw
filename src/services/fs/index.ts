@@ -4,11 +4,13 @@ import { OpfsFsAdapter } from './opfs'
 
 export type { FsAdapter }
 
-export function createFsAdapter(): FsAdapter {
-  if (typeof window !== 'undefined' && window.moxt?.fs) {
-    return new MoxtFsAdapter()
-  }
-  return new OpfsFsAdapter()
-}
+let _fs: FsAdapter | null = null
 
-export const fs = createFsAdapter()
+export function getFs(): FsAdapter {
+  if (!_fs) {
+    _fs = (typeof window !== 'undefined' && window.moxt?.fs)
+      ? new MoxtFsAdapter()
+      : new OpfsFsAdapter()
+  }
+  return _fs
+}

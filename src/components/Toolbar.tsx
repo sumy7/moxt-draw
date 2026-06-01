@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
 import { PlusIcon, PencilIcon, Trash2Icon, DownloadIcon, ChevronDownIcon } from 'lucide-react'
-import { fs } from '../services/fs'
+import { getFs } from '../services/fs'
 import { writeCanvas, emptyCanvas, metaPathFor } from '../services/fileService'
 import { createMeta, updateMetaOnRename } from '../services/metaService'
 import { exportToBlob, exportToSvg } from '@excalidraw/excalidraw'
@@ -60,11 +60,11 @@ export function Toolbar({
     const path = `${drawingsPath}/${safeName}.excalidraw`
     setBusy(true)
     try {
-      if (await fs.exists(path)) {
+      if (await getFs().exists(path)) {
         alert(`画板「${safeName}」已存在，请使用其他名称。`)
         return
       }
-      await fs.mkdir(drawingsPath)
+      await getFs().mkdir(drawingsPath)
       await writeCanvas(path, emptyCanvas())
       await createMeta(path, safeName, spaceId)
       setNewDialogOpen(false)
@@ -85,11 +85,11 @@ export function Toolbar({
     const newPath = `${dir}/${safeName}.excalidraw`
     setBusy(true)
     try {
-      if (newPath !== activeCanvasPath && await fs.exists(newPath)) {
+      if (newPath !== activeCanvasPath && await getFs().exists(newPath)) {
         alert(`画板「${safeName}」已存在，请使用其他名称。`)
         return
       }
-      await fs.move(activeCanvasPath, newPath)
+      await getFs().move(activeCanvasPath, newPath)
       await updateMetaOnRename(activeCanvasPath, newPath, safeName)
       setRenameDialogOpen(false)
       setInputName('')
@@ -105,8 +105,8 @@ export function Toolbar({
     if (!activeCanvasPath || busy) return
     setBusy(true)
     try {
-      await fs.remove(activeCanvasPath)
-      await fs.remove(metaPathFor(activeCanvasPath))
+      await getFs().remove(activeCanvasPath)
+      await getFs().remove(metaPathFor(activeCanvasPath))
       setDeleteDialogOpen(false)
       onDeleted()
     } catch (e) {
