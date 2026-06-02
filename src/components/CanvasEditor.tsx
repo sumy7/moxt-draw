@@ -31,15 +31,11 @@ export function CanvasEditor({ canvasPath, initialData, isEditing, onApiReady, o
     appState: Record<string, unknown>,
     files: Record<string, unknown>,
   ) => {
-    try {
-      await writeCanvas(canvasPath, { elements, appState, files })
-      const thumbnail = await generateThumbnail(elements as readonly object[], appState as object, files as object)
-      await updateMetaOnSave(canvasPath, thumbnail)
-      dirtyRef.current = false
-      onSaved(thumbnail)
-    } catch (e) {
-      console.error('Save failed', e)
-    }
+    await writeCanvas(canvasPath, { elements, appState, files })
+    const thumbnail = await generateThumbnail(elements as readonly object[], appState as object, files as object)
+    await updateMetaOnSave(canvasPath, thumbnail)
+    dirtyRef.current = false
+    onSaved(thumbnail)
   }, [canvasPath, onSaved])
 
   // expose saveNow to parent (used by toolbar "save" button)
@@ -66,7 +62,9 @@ export function CanvasEditor({ canvasPath, initialData, isEditing, onApiReady, o
           saveTimerRef.current = null
         }
         const { elements, appState, files } = pendingDataRef.current
-        void doSave(elements, appState, files)
+        void doSave(elements, appState, files).catch((e) => {
+          console.error('Save failed', e)
+        })
       }
     }
     document.addEventListener('keydown', handleKeyDown, { capture: true })
@@ -86,7 +84,9 @@ export function CanvasEditor({ canvasPath, initialData, isEditing, onApiReady, o
       dirtyRef.current = true
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
       saveTimerRef.current = setTimeout(() => {
-        void doSave(elements, appState, files)
+        void doSave(elements, appState, files).catch((e) => {
+          console.error('Save failed', e)
+        })
       }, 2000)
     },
     [doSave, isEditing],

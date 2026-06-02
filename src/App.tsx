@@ -85,8 +85,13 @@ export default function App() {
   }, [])
 
   const handleSaveAndView = useCallback(async () => {
-    await saveNowRef.current?.()
-    setIsEditing(false)
+    try {
+      await saveNowRef.current?.()
+      setIsEditing(false)
+    } catch (e) {
+      console.error('Save failed', e)
+      alert(`保存失败：${e instanceof Error ? e.message : String(e)}`)
+    }
   }, [])
 
   return (
