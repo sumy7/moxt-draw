@@ -1,16 +1,17 @@
-import { fs } from './fs'
+import { getFs } from './fs'
 import { getCurrentMember } from './memberService'
 import { metaPathFor } from './fileService'
+import { getSpaces } from '../config/spaces'
 import type { CanvasMeta } from '../types/canvas'
 
 export async function readMeta(canvasPath: string): Promise<CanvasMeta | null> {
-  const raw = await fs.read(metaPathFor(canvasPath))
+  const raw = await getFs().read(metaPathFor(canvasPath))
   if (!raw) return null
   try { return JSON.parse(raw) as CanvasMeta } catch { return null }
 }
 
 export async function writeMeta(canvasPath: string, meta: CanvasMeta): Promise<void> {
-  await fs.write(metaPathFor(canvasPath), JSON.stringify(meta, null, 2))
+  await getFs().write(metaPathFor(canvasPath), JSON.stringify(meta, null, 2))
 }
 
 export async function createMeta(
@@ -36,11 +37,27 @@ export async function createMeta(
 
 export async function updateMetaOnSave(canvasPath: string, thumbnail: string | null): Promise<void> {
   const existing = await readMeta(canvasPath)
-  if (!existing) return
+  const now = new Date().toISOString()
+  if (!existing) {
+    const fileName = canvasPath.split('/').pop()?.replace('.excalidraw', '') ?? 'untitled'
+    const space = getSpaces().find(s => canvasPath.startsWith(s.drawingsPath))?.id ?? 'local'
+    await writeMeta(canvasPath, {
+      file_path: canvasPath,
+      name: fileName,
+      space,
+      thumbnail,
+      created_at: now,
+      updated_at: now,
+      last_modified_by: getCurrentMember(),
+      last_opened_at: now,
+      last_opened_by: getCurrentMember(),
+    })
+    return
+  }
   await writeMeta(canvasPath, {
     ...existing,
     thumbnail,
-    updated_at: new Date().toISOString(),
+    updated_at: now,
     last_modified_by: getCurrentMember(),
   })
 }
@@ -63,5 +80,5 @@ export async function updateMetaOnRename(
   const existing = await readMeta(oldPath)
   if (!existing) return
   await writeMeta(newPath, { ...existing, file_path: newPath, name: newName })
-  await fs.remove(metaPathFor(oldPath))
+  await getFs().remove(metaPathFor(oldPath))
 }

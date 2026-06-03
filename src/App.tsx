@@ -5,7 +5,8 @@ import { Toolbar } from './components/Toolbar'
 import { readCanvas } from './services/fileService'
 import { updateMetaOnOpen } from './services/metaService'
 import { getSpaces } from './config/spaces'
-import type { SpaceId } from './types/canvas'
+import { getCurrentMember } from './services/memberService'
+import type { SpaceId, Member } from './types/canvas'
 
 interface NewCanvasTarget {
   spaceId: SpaceId
@@ -24,11 +25,15 @@ export default function App() {
   const [newCanvasTarget, setNewCanvasTarget] = useState<NewCanvasTarget | null>(defaultTarget)
   const [filePanelKey, setFilePanelKey] = useState(0)
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
+  const [lastSave, setLastSave] = useState<{ path: string; thumbnail: string | null; updatedAt: string; modifier: Member | null } | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
   const excalidrawDataRef = useRef<(() => { elements: readonly object[]; appState: object; files: object } | null) | null>(null)
+  const saveNowRef = useRef<(() => Promise<void>) | null>(null)
 
-  const openCanvas = useCallback(async (path: string) => {
+  const openCanvas = useCallback(async (path: string, editing = false) => {
     try {
       setCanvasData(null)
+      setIsEditing(editing)
       const data = await readCanvas(path)
       setCanvasData(data)
       setActiveCanvasPath(path)
@@ -44,7 +49,7 @@ export default function App() {
 
   const handleCreated = useCallback(async (path: string) => {
     setFilePanelKey(k => k + 1)
-    await openCanvas(path)
+    await openCanvas(path, true)
   }, [openCanvas])
 
   const handleRenamed = useCallback(async (newPath: string) => {
@@ -57,16 +62,36 @@ export default function App() {
     setActiveCanvasPath(null)
     setCanvasData(null)
     setLastSavedAt(null)
+    setLastSave(null)
+    setIsEditing(false)
   }, [])
 
-  const handleSaved = useCallback(() => {
-    setLastSavedAt(new Date())
-  }, [])
+  const handleSaved = useCallback((thumbnail: string | null) => {
+    const now = new Date()
+    setLastSavedAt(now)
+    if (activeCanvasPath) {
+      setLastSave({ path: activeCanvasPath, thumbnail, updatedAt: now.toISOString(), modifier: getCurrentMember() })
+    }
+  }, [activeCanvasPath])
 
   const getExcalidrawData = useCallback(() => excalidrawDataRef.current?.() ?? null, [])
 
   const handleApiReady = useCallback((getter: () => { elements: readonly object[]; appState: object; files: object } | null) => {
     excalidrawDataRef.current = getter
+  }, [])
+
+  const handleSaveReady = useCallback((saveNow: () => Promise<void>) => {
+    saveNowRef.current = saveNow
+  }, [])
+
+  const handleSaveAndView = useCallback(async () => {
+    try {
+      await saveNowRef.current?.()
+      setIsEditing(false)
+    } catch (e) {
+      console.error('Save failed', e)
+      alert(`保存失败：${e instanceof Error ? e.message : String(e)}`)
+    }
   }, [])
 
   return (
@@ -79,6 +104,9 @@ export default function App() {
         onDeleted={handleDeleted}
         getExcalidrawData={getExcalidrawData}
         lastSavedAt={lastSavedAt}
+        isEditing={isEditing}
+        onEdit={() => setIsEditing(true)}
+        onSaveAndView={handleSaveAndView}
       />
       <div className="flex flex-1 overflow-hidden">
         <FilePanel
@@ -86,6 +114,7 @@ export default function App() {
           activeCanvasPath={activeCanvasPath}
           onOpen={openCanvas}
           onNewCanvas={handleNewCanvas}
+          lastSave={lastSave}
         />
         <main className="flex-1 overflow-hidden">
           {activeCanvasPath ? (
@@ -93,7 +122,9 @@ export default function App() {
               key={activeCanvasPath}
               canvasPath={activeCanvasPath}
               initialData={canvasData}
+              isEditing={isEditing}
               onApiReady={handleApiReady}
+              onSaveReady={handleSaveReady}
               onSaved={handleSaved}
             />
           ) : (

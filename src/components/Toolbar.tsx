@@ -8,8 +8,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
-import { PlusIcon, PencilIcon, Trash2Icon, DownloadIcon, ChevronDownIcon } from 'lucide-react'
-import { fs } from '../services/fs'
+import { PlusIcon, PencilIcon, Trash2Icon, DownloadIcon, ChevronDownIcon, SaveIcon, EyeIcon } from 'lucide-react'
+import { getFs } from '../services/fs'
 import { writeCanvas, emptyCanvas, metaPathFor } from '../services/fileService'
 import { createMeta, updateMetaOnRename } from '../services/metaService'
 import { exportToBlob, exportToSvg } from '@excalidraw/excalidraw'
@@ -23,6 +23,9 @@ interface Props {
   onDeleted: () => void
   getExcalidrawData: () => { elements: readonly object[]; appState: object; files: object } | null
   lastSavedAt: Date | null
+  isEditing: boolean
+  onEdit: () => void
+  onSaveAndView: () => void
 }
 
 export function Toolbar({
@@ -33,6 +36,9 @@ export function Toolbar({
   onDeleted,
   getExcalidrawData,
   lastSavedAt,
+  isEditing,
+  onEdit,
+  onSaveAndView,
 }: Props) {
   const [newDialogOpen, setNewDialogOpen] = useState(false)
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
@@ -60,11 +66,11 @@ export function Toolbar({
     const path = `${drawingsPath}/${safeName}.excalidraw`
     setBusy(true)
     try {
-      if (await fs.exists(path)) {
+      if (await getFs().exists(path)) {
         alert(`画板「${safeName}」已存在，请使用其他名称。`)
         return
       }
-      await fs.mkdir(drawingsPath)
+      await getFs().mkdir(drawingsPath)
       await writeCanvas(path, emptyCanvas())
       await createMeta(path, safeName, spaceId)
       setNewDialogOpen(false)
@@ -85,11 +91,11 @@ export function Toolbar({
     const newPath = `${dir}/${safeName}.excalidraw`
     setBusy(true)
     try {
-      if (newPath !== activeCanvasPath && await fs.exists(newPath)) {
+      if (newPath !== activeCanvasPath && await getFs().exists(newPath)) {
         alert(`画板「${safeName}」已存在，请使用其他名称。`)
         return
       }
-      await fs.move(activeCanvasPath, newPath)
+      await getFs().move(activeCanvasPath, newPath)
       await updateMetaOnRename(activeCanvasPath, newPath, safeName)
       setRenameDialogOpen(false)
       setInputName('')
@@ -105,8 +111,8 @@ export function Toolbar({
     if (!activeCanvasPath || busy) return
     setBusy(true)
     try {
-      await fs.remove(activeCanvasPath)
-      await fs.remove(metaPathFor(activeCanvasPath))
+      await getFs().remove(activeCanvasPath)
+      await getFs().remove(metaPathFor(activeCanvasPath))
       setDeleteDialogOpen(false)
       onDeleted()
     } catch (e) {
@@ -201,6 +207,18 @@ export function Toolbar({
             <DropdownMenuItem onClick={handleExportSvg}>导出 SVG</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {activeCanvasPath && (
+          isEditing ? (
+            <Button size="sm" variant="default" onClick={onSaveAndView}>
+              <SaveIcon className="h-4 w-4 mr-1" /> 保存
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={onEdit}>
+              <EyeIcon className="h-4 w-4 mr-1" /> 编辑
+            </Button>
+          )
+        )}
       </header>
 
       {/* 新建对话框 */}
